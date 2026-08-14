@@ -77,7 +77,7 @@ module tribuf_ctrl(
             end 
             WAIT : begin
                 wr_ns = stopping ? STOPPED : (wr_frame_ready && wr_sync ? WORKING : WAIT);
-                wr_frame_valid = !stopping && wr_frame_ready && wr_sync ? 1 : 0 ;
+                wr_frame_valid = !stopping && wr_sync ? 1 : 0 ;
                 wr_frame_done = 0;
             end 
             WORKING : begin
@@ -94,7 +94,7 @@ module tribuf_ctrl(
         endcase
     end
     `REG(fclk, wr_cs, STOPPED, wr_ns)
-    `REG(fclk, wr_ptr, 2'h0, wr_frame_valid ? wr_ptr_next : wr_ptr)
+    `REG(fclk, wr_ptr, 2'h0, wr_frame_valid && wr_frame_ready ? wr_ptr_next : wr_ptr)
     `REG(fclk, wr_ptr_prev, 2'h0, wr_frame_done ? wr_ptr : wr_ptr_prev)
     
     reg [1:0] rd_cs;
@@ -110,7 +110,7 @@ module tribuf_ctrl(
             end 
             WAIT : begin
                 rd_ns = rd_sync && rd_frame_ready ? WORKING : WAIT;
-                rd_frame_valid = rd_sync && rd_frame_ready ? 1 : 0 ;
+                rd_frame_valid = rd_sync ? 1 : 0 ;
                 rd_frame_done = 0;
             end 
             WORKING : begin
@@ -126,7 +126,7 @@ module tribuf_ctrl(
         endcase
     end
     `REG(fclk, rd_cs, STOPPED, rd_ns)
-    `REG(fclk, rd_ptr, 2'h0, rd_frame_valid ? rd_ptr_next : rd_ptr)
+    `REG(fclk, rd_ptr, 2'h0, rd_frame_valid && rd_frame_ready ? rd_ptr_next : rd_ptr)
 
     localparam READ=2'h0, READING=2'h1, WRITTEN=2'h2, WRITING=2'h3;
     reg [1:0] buf_state[2:0]; 
@@ -137,7 +137,7 @@ module tribuf_ctrl(
             buf_state[2] <= READ;
         end
         else begin
-            if (wr_frame_valid) begin
+            if (wr_frame_valid && wr_frame_ready) begin
                 buf_state[wr_ptr_next] <= WRITING ;
             end
             if (wr_frame_done) begin
@@ -148,7 +148,7 @@ module tribuf_ctrl(
                     buf_state[wr_ptr_prev] <= READ ;
                 end
             end
-            if (rd_frame_valid) begin
+            if (rd_frame_valid && rd_frame_ready) begin
                 buf_state[rd_ptr_next] <= READING ;
             end
             if (rd_frame_done) begin
